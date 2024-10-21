@@ -52,7 +52,41 @@ void slider(void) {
     if (divisor++) { /* only run the slider function 1/256 times it's called */
         return;
     }
-    midi_send_cc(&midi_device, 2, 0x3E, 0x7F + (analogReadPin(SLIDER_PIN) >> 3));
+    midi_send_cc(&midi_device, 2, 0x3E, 0x7F + (analogReadPin(SLIDER_PIN) >> 3));1
+#include "joystick.h"
+ 
+// Slider as joystick
+joystick_config_t joystick_axes[JOYSTICK_AXIS_COUNT] = {
+    JOYSTICK_AXIS_VIRTUAL,
+};
+ 
+// NOTE: For rescale parameter 0x7C, minimum and maximum values for 'slider_value' are -115 and 119 respectively.
+// We let calibration software on the host to rescale them perfectly to [-127, 127].
+#define RESCALE_PARAM       0x7C
+int8_t slider_reading;
+uint8_t divisor = 0;
+ 
+void slider(void) {
+    if (divisor++) { /* only run the slider function 1/256 times it's called */
+        return;
+    }
+ 
+    // We maintain a rolling average to reduce jitter
+    slider_reading = (slider_reading >> 1) + (int8_t)(analogReadPin(SLIDER_PIN) >> 4);
+ 
+    int8_t slider_value = ((RESCALE_PARAM - slider_reading) << 1) - 0x7F;
+ 
+    joystick_set_axis(0, slider_value);
+}
+ 
+void keyboard_post_init_user(void) {
+    // NOTE: Raw 'SLIDER_PIN' value is in the range [8, 936]
+    slider_reading = (int8_t)(analogReadPin(SLIDER_PIN) >> 3);
+}
+     
+void housekeeping_task_user(void) {
+    slider();
+}
 }
 
 void housekeeping_task_user(void) {
